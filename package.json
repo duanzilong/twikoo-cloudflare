@@ -12,13 +12,13 @@
   },
   "homepage": "https://twikoo.js.org",
   "devDependencies": {
-    "wrangler": "^4.124.0"
+    "wrangler": "^4.125.0"
   },
   "dependencies": {
     "@valibot/to-json-schema": "^1.7.1",
     "effect": "^3.22.1",
     "sury": "11.0.0-rc.1",
-    "twikoo-func": "^1.7.19",
+    "twikoo-func": "^1.7.20",
     "url": "^0.11.4",
     "uuid": "^9.0.1",
     "xss": "^1.0.15"
