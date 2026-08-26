@@ -22,9 +22,5 @@
   },
   "overrides": {
     "axios": "git+https://github.com/wuzhengmao/axios-cf-worker.git#v0.x-cf"
-  },
-  "allowScripts": {
-    "workerd@1.20260820.1": true,
-    "esbuild@0.28.1": true
   }
 }
