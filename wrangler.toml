@@ -25,8 +25,3 @@ enabled = true
 head_sampling_rate = 1
 invocation_logs = true
 persist = true
-
-# 新增：外部化，防止rollup打包把twikoo‑func内部模块乱压缩
-[build.upload]
-format = "modules"
-external = ["twikoo-func/utils/lib"]
