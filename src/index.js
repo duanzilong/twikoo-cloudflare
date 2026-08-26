@@ -7,13 +7,8 @@ import { v4 as uuidv4 } from 'uuid' // 用户 id 生成
 import xss from 'xss'
 // Cloudflare request.cf 地理信息 (每次请求更新，用于新评论提交)
 let currentRequestGeo = { ip: null, region: '' }
-import {
-  cheerio,
-  md5,
-  sha256,
-  xml2js,
-  setCustomLibs
-} from 'twikoo-func/utils/lib'
+import lib from 'twikoo-func/utils/lib'
+const { cheerio, md5, sha256, xml2js, setCustomLibs } = lib
 import {
   getFuncVersion,
   parseComment,
