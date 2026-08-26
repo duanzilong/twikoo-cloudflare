@@ -12,14 +12,11 @@
   },
   "homepage": "https://twikoo.js.org",
   "devDependencies": {
-    "wrangler": "^4.125.0"
+    "wrangler": "^4.68.0"
   },
   "dependencies": {
-    "@valibot/to-json-schema": "^1.7.1",
-    "effect": "^3.22.1",
-    "sury": "11.0.0-rc.1",
     "twikoo-func": "^1.7.19",
-    "url": "^0.11.4",
+    "url": "^0.11.3",
     "uuid": "^9.0.1",
     "xss": "^1.0.15"
   },
@@ -28,7 +25,6 @@
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
-    "sharp@0.34.5": true,
     "workerd@1.20260820.1": true
   }
 }

@@ -18,10 +18,3 @@ R2_PUBLIC_URL = "https://twikoo-r.920925.xyz"
 
 [dev]
 port = 5000
-
-[observability]
-[observability.logs]
-enabled = true
-head_sampling_rate = 1
-invocation_logs = true
-persist = true
