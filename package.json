@@ -15,12 +15,16 @@
     "wrangler": "^4.68.0"
   },
   "dependencies": {
-    "twikoo-func": "^1.7.19",
+    "twikoo-func": "^1.6.44",
     "url": "^0.11.3",
     "uuid": "^9.0.1",
     "xss": "^1.0.15"
   },
   "overrides": {
     "axios": "git+https://github.com/wuzhengmao/axios-cf-worker.git#v0.x-cf"
+  },
+  "allowScripts": {
+    "workerd@1.20260820.1": true,
+    "esbuild@0.28.1": true
   }
 }
