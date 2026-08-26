@@ -3,17 +3,15 @@
  * (c) 2024-present Tao Xin & Mingy & iMaeGoo
  * Released under the MIT License.
  */
-
 import { v4 as uuidv4 } from 'uuid' // 用户 id 生成
 import xss from 'xss'
-
 // Cloudflare request.cf 地理信息 (每次请求更新，用于新评论提交)
 let currentRequestGeo = { ip: null, region: '' }
 import {
-  getCheerio,
-  getMd5,
-  getSha256,
-  getXml2js,
+  cheerio,
+  md5,
+  sha256,
+  xml2js,
   setCustomLibs
 } from 'twikoo-func/utils/lib'
 import {
@@ -45,10 +43,8 @@ import { sendNotice, emailTest } from 'twikoo-func/utils/notify'
 import { uploadImage } from 'twikoo-func/utils/image'
 import logger from 'twikoo-func/utils/logger'
 import twikooFuncPkg from 'twikoo-func/package.json'
-
 // 常量 / constants
 import constants from 'twikoo-func/utils/constants'
-
 // 注入Cloudflare特定的依赖（原依赖于Cloudflare不兼容）
 setCustomLibs({
   DOMPurify: {
@@ -56,7 +52,6 @@ setCustomLibs({
       return input
     }
   },
-
   // 使用 Cloudflare request.cf 替代 ip2region
   nodemailer: {
     createTransport (config) {
@@ -73,7 +68,6 @@ setCustomLibs({
           }
           return true
         },
-
         sendMail ({ from, to, subject, html }) {
           if (config.service.toLowerCase() === 'sendgrid') {
             return fetch('https://api.sendgrid.com/v3/mail/send', {
@@ -125,32 +119,22 @@ setCustomLibs({
     }
   }
 })
-
-const $ = getCheerio()
-const md5 = getMd5()
-const sha256 = getSha256()
-const xml2js = getXml2js()
-
 const { RES_CODE, MAX_REQUEST_TIMES } = constants
 const VERSION = twikooFuncPkg.version
-
 // 全局变量 / variables
 let config
 let accessToken
 const requestTimes = {}
-
 class DBBinding {
   constructor (binding) {
     this.DB = binding
   }
-
   get commentCountQuery () {
     return this._commentCountQuery ?? (this._commentCountQuery = this.DB.prepare(`
 SELECT COUNT(*) AS count FROM comment
 WHERE url = ?1 AND rid = "" AND (isSpam != ?2 OR uid = ?3)
 `.trim()))
   }
-
   get commentQuery () {
     return this._commentQuery ?? (this._commentQuery = this.DB.prepare(`
 SELECT * FROM comment
@@ -164,7 +148,6 @@ ORDER BY created DESC
 LIMIT ?6
 `.trim()))
   }
-
   static replyQueryTemplate = `
 SELECT * FROM comment
 WHERE
@@ -172,7 +155,6 @@ WHERE
   (isSpam != ?2 OR uid = ?3) AND
   rid IN ({{RIDS}})
 `.trim()
-
   getReplyQuery (numParams) {
     if (!this.replyQueryCache) this.replyQueryCache = new Map()
     const cached = this.replyQueryCache.get(numParams)
@@ -182,7 +164,6 @@ WHERE
     this.replyQueryCache.set(numParams, result)
     return result
   }
-
   get commentForAdminCountQuery () {
     return this._commentForAdminCountQuery ?? (this._commentForAdminCountQuery = this.DB.prepare(`
 SELECT COUNT(*) AS count FROM comment
@@ -197,7 +178,6 @@ WHERE
   href LIKE ?2)
 `.trim()))
   }
-
   get commentForAdminQuery () {
     return this._commentForAdminQuery ?? (this._commentForAdminQuery = this.DB.prepare(`
 SELECT * FROM comment
@@ -214,13 +194,11 @@ WHERE
   LIMIT ?3 OFFSET ?4
 `.trim()))
   }
-
   static commentSetStmtTemplate = `
 UPDATE comment
 SET {{FIELDS}}
 WHERE _id = ?
 `.trim()
-
   getCommentSetStmt (fields) {
     if (!this.commentSetStmtCache) this.commentSetStmtCache = new Map()
     const cacheKey = JSON.stringify(fields)
@@ -232,31 +210,26 @@ WHERE _id = ?
     this.commentSetStmtCache.set(cacheKey, result)
     return result
   }
-
   get commentDeleteStmt () {
     return this._commentDeleteStmt ?? (this._commentDeleteStmt =
       this.DB.prepare('DELETE FROM comment WHERE _id = ?1')
     )
   }
-
   get commentExportQuery () {
     return this._commentExportQuery ?? (this._commentExportQuery =
       this.DB.prepare('SELECT * FROM comment')
     )
   }
-
   get commentByIdQuery () {
     return this._commentByIdQuery ?? (this._commentByIdQuery =
       this.DB.prepare('SELECT * FROM comment WHERE _id = ?1')
     )
   }
-
   get updateLikeStmt () {
     return this._updateLikeStmt ?? (this._updateLikeStmt =
       this.DB.prepare('UPDATE comment SET like = ?2 WHERE _id = ?1')
     )
   }
-
   get saveCommentStmt () {
     return this._saveCommentStmt ?? (this._saveCommentStmt =
       this.DB.prepare(`
@@ -266,27 +239,23 @@ INSERT INTO comment VALUES (
 )
 `.trim()))
   }
-
   get commentCountSinceByIpQuery () {
     return this._commentCountSinceByIpQuery ?? (this._commentCountSinceByIpQuery = this.DB.prepare(`
 SELECT COUNT(*) AS count FROM comment
 WHERE created > ?1 AND ip = ?2
 `.trim()))
   }
-
   get commentCountSinceQuery () {
     return this._commentCountSinceQuery ?? (this._commentCountSinceQuery = this.DB.prepare(`
 SELECT COUNT(*) AS count FROM comment
 WHERE created > ?1
 `.trim()))
   }
-
   get updateIsSpamStmt () {
     return this._updateIsSpamStmt ?? (this._updateIsSpamStmt = this.DB.prepare(`
 UPDATE comment SET isSpam = ?2, updated = ?3 WHERE _id = ?1
 `.trim()))
   }
-
   get incCounterStmt () {
     return this._incCounterStmt ?? (this._incCounterStmt = this.DB.prepare(`
 INSERT INTO counter VALUES
@@ -294,20 +263,17 @@ INSERT INTO counter VALUES
 ON CONFLICT (url) DO UPDATE SET time = time + 1, title = ?2, updated = ?3
 `.trim()))
   }
-
   get counterQuery () {
     return this._counterQuery ?? (this._counterQuery =
       this.DB.prepare('SELECT time FROM counter WHERE url = ?1')
     )
   }
-
   get commentCountByUrlQuery () {
     return this._commentCountByUrlQuery ?? (this._commentCountByUrlQuery = this.DB.prepare(`
 SELECT COUNT(*) AS count FROM comment
 WHERE url = ?1 AND NOT isSpam AND (?2 OR rid = "")
 `.trim()))
   }
-
   get recentCommentsByUrlQuery () {
     return this._recentCommentsByUrlQuery ?? (this._recentCommentsByUrlQuery = this.DB.prepare(`
 SELECT * FROM comment
@@ -318,22 +284,18 @@ WHERE
 LIMIT ?4
 `.trim()))
   }
-
   get readConfigQuery () {
     return this._readConfigQuery ?? (this._readConfigQuery =
       this.DB.prepare('SELECT value FROM config LIMIT 1')
     )
   }
-
   get writeConfigStmt () {
     return this._writeConfigStmt ?? (this._writeConfigStmt =
       this.DB.prepare('UPDATE config SET value = ?1')
     )
   }
 }
-
 let db
-
 function setDb (DB) {
   if (db) {
     logger.log('重用已有数据库绑定')
@@ -342,7 +304,6 @@ function setDb (DB) {
   logger.log('创建新的数据库绑定')
   db = new DBBinding(DB)
 }
-
 export default {
   /**
    * @param {Request} request
@@ -458,7 +419,7 @@ export default {
       res.code = RES_CODE.FAIL
       res.message = e.message
     }
-    if (!res.code && !request.body.accessToken) {
+    if (!res.code && !request.body?.accessToken) {
       res.accessToken = accessToken
     }
     logger.log('请求返回：', res)
@@ -466,7 +427,6 @@ export default {
     return new Response(JSON.stringify(res), { headers })
   }
 }
-
 function allowCors (request, headers) {
   const origin = request.headers.get('origin')
   if (origin) {
@@ -478,7 +438,6 @@ function allowCors (request, headers) {
     headers['Access-Control-Max-Age'] = '600'
   }
 }
-
 function getAllowedOrigin (origin) {
   const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d{1,5})?$/
   if (localhostRegex.test(origin)) { // 判断是否为本地主机，如是则允许跨域
@@ -499,7 +458,6 @@ function getAllowedOrigin (origin) {
     return origin // 未设置安全域名直接 Allow
   }
 }
-
 function anonymousSignIn (event) {
   if (event.accessToken) {
     return event.accessToken
@@ -507,7 +465,6 @@ function anonymousSignIn (event) {
     return uuidv4().replace(/-/g, '')
   }
 }
-
 // 写入管理密码
 async function setPassword (event) {
   const isAdminUser = isAdmin()
@@ -522,7 +479,6 @@ async function setPassword (event) {
     code: RES_CODE.SUCCESS
   }
 }
-
 // 管理员登录
 async function login (password) {
   if (!config) {
@@ -538,16 +494,13 @@ async function login (password) {
     code: RES_CODE.SUCCESS
   }
 }
-
 // timestamp(2100/1/1) * 10
 const MAX_TIMESTAMP_MILLIS = 41025312000000
 const MAX_QUERY_LIMIT = 500
-
 function parseLike (comment) {
   comment.like = JSON.parse(comment.like)
   return comment
 }
-
 // 读取评论
 async function commentGet (event) {
   const res = {}
@@ -569,7 +522,6 @@ async function commentGet (event) {
         // 流式分页，通过多读 1 条的方式，确认是否还有更多评论
         limit + 1
       ).all()
-
     if (main.length > limit) {
       // 还有更多评论
       more = true
@@ -625,7 +577,6 @@ async function commentGet (event) {
   }
   return res
 }
-
 // 管理员读取评论
 async function commentGetForAdmin (event) {
   const res = {}
@@ -656,7 +607,6 @@ async function commentGetForAdmin (event) {
   }
   return res
 }
-
 // 管理员修改评论
 async function commentSetForAdmin (event) {
   const res = {}
@@ -674,7 +624,6 @@ async function commentSetForAdmin (event) {
   }
   return res
 }
-
 // 管理员删除评论
 async function commentDeleteForAdmin (event, env) {
   const res = {}
@@ -700,7 +649,6 @@ async function commentDeleteForAdmin (event, env) {
   }
   return res
 }
-
 // 清理评论中的 R2 图片
 async function cleanupR2Images (commentHtml, r2Bucket, r2PublicUrl) {
   // 移除末尾斜杠
@@ -724,7 +672,6 @@ async function cleanupR2Images (commentHtml, r2Bucket, r2PublicUrl) {
     logger.log(`已删除 ${deletePromises.length} 张 R2 图片`)
   }
 }
-
 // 管理员导入评论
 async function commentImportForAdmin (event) {
   const res = {}
@@ -782,7 +729,6 @@ async function commentImportForAdmin (event) {
   }
   return res
 }
-
 async function commentExportForAdmin () {
   const res = {}
   const isAdminUser = isAdmin()
@@ -796,7 +742,6 @@ async function commentExportForAdmin () {
   }
   return res
 }
-
 // 读取文件并转为 js object
 async function readFile (file, type, log) {
   try {
@@ -814,7 +759,6 @@ async function readFile (file, type, log) {
     log(`评论文件读取失败：${e.message}`)
   }
 }
-
 // 点赞 / 取消点赞
 async function commentLike (event) {
   const res = {}
@@ -822,7 +766,6 @@ async function commentLike (event) {
   await like(event.id, getUid())
   return res
 }
-
 // 点赞 / 取消点赞
 async function like (id, uid) {
   const comment = await db.commentByIdQuery.bind(id).first()
@@ -837,7 +780,6 @@ async function like (id, uid) {
   }
   await db.updateLikeStmt.bind(id, JSON.stringify(likes)).run()
 }
-
 /**
  * 提交评论。分为多个步骤
  * 1. 参数校验
@@ -871,7 +813,6 @@ async function commentSubmit (event, request) {
   try {
     logger.log('开始异步垃圾检测、发送评论通知')
     logger.log('POST_SUBMIT')
-
     await Promise.race([
       (async () => {
         try {
@@ -891,7 +832,6 @@ async function commentSubmit (event, request) {
   }
   return res
 }
-
 // 保存评论
 async function save (data) {
   data.id = data._id = uuidv4().replace(/-/g, '')
@@ -904,11 +844,9 @@ async function save (data) {
   ).run()
   return data
 }
-
 async function getParentComment (currentComment) {
 	return db.commentByIdQuery.bind(currentComment.pid).first()
 }
-
 // 异步垃圾检测、发送评论通知
 async function postSubmit (comment) {
   // 垃圾检测
@@ -918,7 +856,6 @@ async function postSubmit (comment) {
   await sendNotice(comment, config, getParentComment)
   return { code: RES_CODE.SUCCESS }
 }
-
 // 将评论转为数据库存储格式
 async function parse (comment, request) {
   const timestamp = Date.now()
@@ -953,7 +890,6 @@ async function parse (comment, request) {
   }
   return commentDo
 }
-
 // 限流
 async function limitFilter (request) {
   // 限制每个 IP 每 10 分钟发表的评论数量
@@ -962,7 +898,6 @@ async function limitFilter (request) {
   // 限制所有 IP 每 10 分钟发表的评论数量
   let limitPerMinuteAll = parseInt(config.LIMIT_PER_MINUTE_ALL)
   if (Number.isNaN(limitPerMinuteAll)) limitPerMinuteAll = 10
-
   const getCountByIp = async () => limitPerMinute ?
     db.commentCountSinceByIpQuery.bind(
       Date.now() - 600000, getIp(request)
@@ -970,11 +905,9 @@ async function limitFilter (request) {
   const getCount = async () => limitPerMinuteAll ?
     db.commentCountSinceQuery.bind(Date.now() - 600000).first('count') : 0
   const [countByIp, count] = await Promise.all([getCountByIp(), getCount()])
-
   if (countByIp > limitPerMinute) throw new Error('发言频率过高')
   if (count > limitPerMinuteAll) throw new Error('评论太火爆啦 >_< 请稍后再试')
 }
-
 async function checkCaptcha (comment, request) {
   if (config.TURNSTILE_SITE_KEY && config.TURNSTILE_SECRET_KEY) {
     await checkTurnstileCaptcha({
@@ -984,7 +917,6 @@ async function checkCaptcha (comment, request) {
     })
   }
 }
-
 async function checkTurnstileCaptcha ({ ip, turnstileToken, turnstileTokenSecretKey }) {
   try {
     const formData = new FormData()
@@ -1002,12 +934,10 @@ async function checkTurnstileCaptcha ({ ip, turnstileToken, turnstileTokenSecret
     throw new Error('验证码检测失败: ' + e.message)
   }
 }
-
 async function saveSpamCheckResult (comment, isSpam) {
   comment.isSpam = isSpam
   await db.updateIsSpamStmt.bind(comment._id, isSpam, Date.now()).run()
 }
-
 /**
  * 获取文章点击量
  * @param {String} event.url 文章地址
@@ -1024,7 +954,6 @@ async function counterGet (event) {
   }
   return res
 }
-
 /**
  * 批量获取文章评论数 API
  * @param {Array} event.urls 不包含协议和域名的文章路径列表，必传参数
@@ -1047,7 +976,6 @@ async function getCommentsCount (event) {
   }
   return res
 }
-
 /**
  * 获取最新评论 API
  * @param {Boolean} event.includeReply 评论数是否包括回复，默认：false
@@ -1058,16 +986,13 @@ async function getRecentComments (event) {
     const queryComments = (urls) => {
       const pageSize = event.pageSize > 100 ? 100 : (event.pageSize || 10)
       const { includeReply } = event
-
       if (urls?.length) {
         return Promise.all(urls.map(
           (url) => db.recentCommentsByUrlQuery.bind(0, url, includeReply, pageSize).all()
         )).then(results => results.flat())
       }
-
       return db.recentCommentsByUrlQuery.bind(1, '', includeReply, pageSize).all()
     }
-
     const formatComment = (comment) => ({
       id: comment._id.toString(),
       url: comment.url,
@@ -1076,12 +1001,10 @@ async function getRecentComments (event) {
       mailMd5: getMailMd5(comment),
       link: comment.link,
       comment: comment.comment,
-      commentText: $(comment.comment).text(),
+      commentText: cheerio.load(comment.comment).text(),
       created: comment.created
     })
-
     const result = await queryComments(event?.urls)
-
     res.data = (Array.isArray(result)
       ? result.map(item => item.results?.map(comment => formatComment(comment))).flat()
       : result.results?.map(comment => formatComment(comment)) || []
@@ -1092,7 +1015,6 @@ async function getRecentComments (event) {
   }
   return res
 }
-
 // 修改配置
 async function setConfig (event) {
   const isAdminUser = isAdmin()
@@ -1108,7 +1030,6 @@ async function setConfig (event) {
     }
   }
 }
-
 function protect (request) {
   // 防御
   const ip = getIp(request)
@@ -1120,13 +1041,11 @@ function protect (request) {
     logger.log(`${ip} 当前请求次数为 ${requestTimes[ip]}`)
   }
 }
-
 // 读取配置
 async function readConfig () {
   const configStr = await db.readConfigQuery.first('value')
   return config = configStr ? JSON.parse(configStr) : {}
 }
-
 // 写入配置
 async function writeConfig (newConfig) {
   if (!Object.keys(newConfig).length) return
@@ -1138,22 +1057,18 @@ async function writeConfig (newConfig) {
     logger.error('写入配置失败：', e)
   }
 }
-
 // 获取用户 ID
 function getUid () {
   return accessToken
 }
-
 // 判断用户是否管理员
 function isAdmin () {
   const uid = getUid()
   return config.ADMIN_PASS === md5(uid)
 }
-
 function getIp (request) {
   return request.headers.get('CF-Connecting-IP')
 }
-
 // 格式化 IP 地区显示 (从 ip2region 格式转为显示格式)
 // 输入: country|0|province|city|isp
 // 输出: 国家 省/州 (例如: "US Washington" 或 "中国 广东")
@@ -1169,7 +1084,6 @@ function formatIpRegion (region) {
   }
   return parts.join(' ')
 }
-
 // R2上传图片
 async function r2_upload(event, bucket, cdnUrl) {
   const { photo } = event
@@ -1203,22 +1117,18 @@ async function r2_upload(event, bucket, cdnUrl) {
   }
   return res
 }
-
 function dataURIToBlob(dataURI) {
   // 分离 MIME 类型和 base64 数据
   const [header, base64] = dataURI.split(',');
   const mime = header.match(/:(.*?);/)[1];
-
   // 解码 base64 数据
   const binaryString = atob(base64);
   const len = binaryString.length;
-
   // 创建 Uint8Array 存储二进制数据
   const uint8Array = new Uint8Array(len);
   for (let i = 0; i < len; i++) {
       uint8Array[i] = binaryString.charCodeAt(i);
   }
-
   // 创建 Blob 对象
   return new Blob([uint8Array], { type: mime });
 }
